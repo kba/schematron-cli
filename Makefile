@@ -26,4 +26,4 @@ vendor:
 	cd vendor && $(MAKE)
 
 test:
-	@PATH=$(PWD)/bin:$(PATH) ./test/tsht
+	@PATH=$(PWD)/bin:$(PATH) ./test/tsht --color

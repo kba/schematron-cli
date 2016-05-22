@@ -69,8 +69,6 @@ if [[ ! -e "$SCHEMATRON" ]];then
     exit 1
 fi
 # Recompile if out of date
-ls -lah "$XSLT_OUT"
-ls -lah "$SCHEMATRON"
 if [[ ! -s "$XSLT_OUT" || "$SCHEMATRON" -nt "$XSLT_OUT" ]];then
     echo-err "'$XSLT_OUT' older thant '$SCHEMATRON', recompiling"
     compile
