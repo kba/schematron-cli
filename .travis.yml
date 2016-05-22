@@ -1,0 +1,5 @@
+language: bash
+install:
+  - make vendor
+script:
+  - make test

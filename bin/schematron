@@ -1,0 +1,80 @@
+#!/bin/bash
+
+SHAREDIR="$(readlink -f "$(dirname "$0")")/.."
+SAXON_JAR="$SHAREDIR/vendor/saxon9he.jar"
+XSLT_VERSION=2
+
+echo-err() {
+    echo "$@" >&2
+}
+usage() {
+    echo-err "$(basename "$0") [--xslt-version <1|2>] [--xslt-out <compiled.xsl>] <schema.sch> <valid.xml>
+
+    Options:
+        --xslt-version <1|2>       Schematron version to use. Default: $XSLT_VERSION
+        --xslt-out <compiled.xsl>  Filename of the compiled XSLT. Default: temp file
+
+    Arguments:
+        <schema.sch>    The schematron file
+        <valid.xml>     The XML file to validate
+    "
+}
+
+compile() {
+    local COMPILE_ARGS
+    COMPILE_ARGS=()
+    COMPILE_ARGS+=("-jar" "$SAXON_JAR")
+    COMPILE_ARGS+=("-s:$SCHEMATRON")
+    COMPILE_ARGS+=("-xsl:$SHAREDIR/vendor/iso-schematron-xslt${XSLT_VERSION}/iso_svrl_for_xslt${XSLT_VERSION}.xsl")
+    java "${COMPILE_ARGS[@]}" > "$XSLT_OUT"
+}
+
+apply() {
+    local APPLY_ARGS=()
+    APPLY_ARGS+=("-jar" "$SAXON_JAR")
+    APPLY_ARGS+=("-s:$XML")
+    APPLY_ARGS+=("-xsl:$XSLT_OUT")
+    java "${APPLY_ARGS[@]}"
+}
+
+while [[ "$1" =~ ^- ]];do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --xslt-version)
+            shift;
+            XSLT_VERSION=$1
+            ;;
+        --xslt-out)
+            shift;
+            XSLT_OUT=$1
+            ;;
+    esac
+    shift
+done
+
+if [[ -z "$XSLT_OUT" ]];then
+    TEMPFILE=$(mktemp /tmp/schematron.XXXXXX)
+    # shellcheck disable=SC2064
+    trap "rm '$TEMPFILE'" EXIT
+    XSLT_OUT=$TEMPFILE
+fi
+
+SCHEMATRON="$1"
+XML="$2"
+if [[ ! -e "$SCHEMATRON" ]];then
+    echo-err "!! Must specify <schematron.sch> file. See $0 --help !!"
+    exit 1
+fi
+# Recompile if out of date
+ls -lah "$XSLT_OUT"
+ls -lah "$SCHEMATRON"
+if [[ ! -s "$XSLT_OUT" || "$SCHEMATRON" -nt "$XSLT_OUT" ]];then
+    echo-err "'$XSLT_OUT' older thant '$SCHEMATRON', recompiling"
+    compile
+else
+    echo-err "'$XSLT_OUT' up-to-date with '$SCHEMATRON'"
+fi
+apply

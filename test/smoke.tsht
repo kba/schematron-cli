@@ -1,0 +1,10 @@
+#!/usr/bin/env tsht
+
+plan 2
+
+temp1=$(mktemp)
+
+exec_ok schematron --help
+exec_ok schematron --xslt-out "$temp1" assets/test.sch assets/sample.html
+
+rm "$temp1"
