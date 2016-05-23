@@ -7,15 +7,20 @@ Command-line interface to schematron validation.
 ## Usage
 
 ```
-schematron [--xslt-version <1|2>] [--xslt-out <compiled.xsl>] <schema.sch> <valid.xml>
+schematron [options] <schema.sch> [<input.xml>...]
 
     Options:
-        --xslt-version <1|2>       Schematron version to use. Default: 2
-        --xslt-out <compiled.xsl>  Filename of the compiled XSLT. Default: temp file
+        --debug    -d                Show what's happening
+        --help     -h                Show this help
+        --xslt-version <1|2>         Schematron version to use. Default: 2
+        --xslt-out <compiled.xsl>    Filename of the compiled XSLT. Default: temp file
+        --report-suffix 'xyz.xml'    Filename suffix of the SVRL report. Default: '.report.xml'
+        --formatter <formatter.xsl>  XSLT to run on the produced SVRL report.
+        --tap                        Produces TAP (Test Anything Protocol) output.
 
     Arguments:
         <schema.sch>    The schematron file
-        <valid.xml>     The XML file to validate
+        <valid.xml>     The XML files to validate
 ```
 
 ## Acknowledgements

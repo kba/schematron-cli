@@ -1,78 +1,112 @@
 #!/bin/bash
+set -e
 
 SHAREDIR="$(readlink -f "$(dirname "$0")")/.."
 SAXON_JAR="$SHAREDIR/vendor/saxon9he.jar"
+REPORT_SUFFIX=".report.xml"
+MKTEMP_PATTERN="/tmp/schematron.XXXXXX"
+DEBUG=0
 XSLT_VERSION=2
+export TEMPFILES=()
+
+usage() {
+    echo-err "$(basename "$0") [options] <schema.sch> [<input.xml>...]
+
+    Options:
+        --debug    -d                Show what's happening
+        --help     -h                Show this help
+        --xslt-version <1|2>         Schematron version to use. Default: $XSLT_VERSION
+        --xslt-out <compiled.xsl>    Filename of the compiled XSLT. Default: temp file
+        --report-suffix 'xyz.xml'    Filename suffix of the SVRL report. Default: '.report.xml'
+        --formatter <formatter.xsl>  XSLT to run on the produced SVRL report.
+        --tap                        Produces TAP (Test Anything Protocol) output.
+
+    Arguments:
+        <schema.sch>      The schematron file
+        [<valid.xml>...]  The XML files to validate"
+}
+
 
 echo-err() {
     echo "$@" >&2
 }
-usage() {
-    echo-err "$(basename "$0") [--xslt-version <1|2>] [--xslt-out <compiled.xsl>] <schema.sch> <valid.xml>
 
-    Options:
-        --xslt-version <1|2>       Schematron version to use. Default: $XSLT_VERSION
-        --xslt-out <compiled.xsl>  Filename of the compiled XSLT. Default: temp file
+# ## xsl-transform
+#
+# 1) XSLT script
+# 2) Input XML
+# 4) Output XML (Optional)
 
-    Arguments:
-        <schema.sch>    The schematron file
-        <valid.xml>     The XML file to validate
-    "
+xsl-transform() {
+    local XSLT_ARGS
+    XSLT_ARGS=()
+    XSLT_ARGS+=("-jar" "$SAXON_JAR")
+    XSLT_ARGS+=("-xsl:$1")
+    XSLT_ARGS+=("-s:$2")
+    [[ ! -z "$3" ]] && XSLT_ARGS+=("-o:$3")
+    XSLT_ARGS+=("-versionmsg:off")
+    java "${XSLT_ARGS[@]}"
 }
 
-compile() {
-    local COMPILE_ARGS
-    COMPILE_ARGS=()
-    COMPILE_ARGS+=("-jar" "$SAXON_JAR")
-    COMPILE_ARGS+=("-s:$SCHEMATRON")
-    COMPILE_ARGS+=("-xsl:$SHAREDIR/vendor/iso-schematron-xslt${XSLT_VERSION}/iso_svrl_for_xslt${XSLT_VERSION}.xsl")
-    java "${COMPILE_ARGS[@]}" > "$XSLT_OUT"
-}
-
-apply() {
-    local APPLY_ARGS=()
-    APPLY_ARGS+=("-jar" "$SAXON_JAR")
-    APPLY_ARGS+=("-s:$XML")
-    APPLY_ARGS+=("-xsl:$XSLT_OUT")
-    java "${APPLY_ARGS[@]}"
-}
+#------------------------------------------------------------
+# Main
+#------------------------------------------------------------
 
 while [[ "$1" =~ ^- ]];do
     case "$1" in
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        --xslt-version)
-            shift;
-            XSLT_VERSION=$1
-            ;;
-        --xslt-out)
-            shift;
-            XSLT_OUT=$1
-            ;;
+        -h|--help) usage; exit 0 ;;
+        -d|--debug) DEBUG=$((DEBUG + 1)) ;;
+        --xslt-version) shift; XSLT_VERSION="$1" ;;
+        --xslt-out) shift; XSLT_OUT="$1" ;;
+        --report-suffix) shift; REPORT_SUFFIX="$1" ;;
+        --formatter) shift; FORMATTER="$1" ;;
+        --tap) FORMATTER="$SHAREDIR/xslt/svrl-to-tap.xsl" ;;
     esac
     shift
 done
 
 if [[ -z "$XSLT_OUT" ]];then
-    TEMPFILE=$(mktemp /tmp/schematron.XXXXXX)
-    # shellcheck disable=SC2064
-    trap "rm '$TEMPFILE'" EXIT
-    XSLT_OUT=$TEMPFILE
+    XSLT_OUT=$(mktemp "$MKTEMP_PATTERN")
+    trap "((DEBUG>1)) && echo-err 'Deleting $XSLT_OUT'; rm '$XSLT_OUT'" EXIT
 fi
 
+SCHEMATRON_SVRL="$SHAREDIR/vendor/iso-schematron-xslt${XSLT_VERSION}/iso_svrl_for_xslt${XSLT_VERSION}.xsl"
+if [[ ! -e "$SCHEMATRON_SVRL" ]];then
+    echo-err "!! Invalid --xslt-version ${XSLT_VERSION} !!"
+fi
+
+#------------------------------------------------------------
+# Compile Schematron if out of date
+#------------------------------------------------------------
 SCHEMATRON="$1"
-XML="$2"
+shift;
 if [[ ! -e "$SCHEMATRON" ]];then
     echo-err "!! Must specify <schematron.sch> file. See $0 --help !!"
     exit 1
 fi
-# Recompile if out of date
+((DEBUG > 0)) && echo-err -n "Compiling '$SCHEMATRON'... "
 if [[ ! -s "$XSLT_OUT" || "$SCHEMATRON" -nt "$XSLT_OUT" ]];then
-    echo-err "'$XSLT_OUT' older thant '$SCHEMATRON', recompiling"
-    compile
+    echo-err -n "recompiling ... "
+    xsl-transform "$SCHEMATRON_SVRL" "$SCHEMATRON" "$XSLT_OUT"
 else
-    echo-err "'$XSLT_OUT' up-to-date with '$SCHEMATRON'"
+    echo-err "use cached ... "
 fi
-apply
+((DEBUG > 0)) && echo-err "done"
+
+#------------------------------------------------------------
+# Apply compiled schematron to input xml
+#------------------------------------------------------------
+for xml in "$@";do
+    report_name="$xml$REPORT_SUFFIX"
+    ((DEBUG > 0)) && echo-err -n "$xml: Validating ... "
+    if [[ -z "$FORMATTER" ]];then
+        xsl-transform "$XSLT_OUT" "$xml" "$report_name"
+    else
+        svrl=$(mktemp $MKTEMP_PATTERN)
+        xsl-transform "$XSLT_OUT" "$xml" "$svrl"
+        ((DEBUG > 0)) && echo-err -n "Formatting ... "
+        xsl-transform "$FORMATTER" "$svrl" "$report_name"
+        rm "$svrl"
+    fi
+    ((DEBUG > 0)) && echo-err "done"
+done
