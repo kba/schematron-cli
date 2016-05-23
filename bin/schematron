@@ -91,7 +91,7 @@ if [[ ! -s "$XSLT_OUT" || "$SCHEMATRON" -nt "$XSLT_OUT" ]];then
     ((DEBUG > 0)) && echo-err -n "recompiling ... "
     xsl-transform "$SCHEMATRON_SVRL" "$SCHEMATRON" "$XSLT_OUT"
 else
-    ((DEBUG > 0)) && echo-err "use cached ... "
+    ((DEBUG > 0)) && echo-err -n "use cached ... "
 fi
 ((DEBUG > 0)) && echo-err "done"
 
