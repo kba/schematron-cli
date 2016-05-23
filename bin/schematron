@@ -106,21 +106,21 @@ for xml in "$@";do
     ((DEBUG > 0)) && echo-err -n "$xml: "
     if [[ "$STRIP_NAMESPACES" = "1" ]];then
         xml_stripped=$(mktemp $MKTEMP_PATTERN)
-        ((DEBUG > 0)) && echo-err -n "Unnamespacing to ${xml_stripped}... "
+        ((DEBUG > 0)) && echo-err -n "Unnamespacing ${xml} -> ${xml_stripped}... "
         xsl-transform "$XSLT_STRIP_NAMESPACES" "$xml" "$xml_stripped"
         xml="$xml_stripped"
     fi
     report_name="$xml$REPORT_SUFFIX"
     if [[ -z "$FORMATTER" ]];then
-        ((DEBUG > 0)) && echo-err -n "Validating ... "
+        ((DEBUG > 0)) && echo-err -n "Validating ${xml} -> ${report_name}... "
         xsl-transform "$XSLT_OUT" "$xml" "$report_name"
     else
         svrl=$(mktemp $MKTEMP_PATTERN)
-        ((DEBUG > 0)) && echo-err -n "Formatting ... "
+        ((DEBUG > 0)) && echo-err -n "Validating ${xml}... "
         xsl-transform "$XSLT_OUT" "$xml" "$svrl"
-        ((DEBUG > 0)) && echo-err -n "Validating ... "
+        ((DEBUG > 0)) && echo-err -n "Formatting ${svrl} -> ${report_name}... "
         xsl-transform "$FORMATTER" "$svrl" "$report_name"
-        rm "$svrl"
+        # rm "$svrl"
     fi
     ((DEBUG > 0)) && echo-err "done"
 done
