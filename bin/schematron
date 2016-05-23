@@ -104,13 +104,13 @@ fi
 #------------------------------------------------------------
 for xml in "$@";do
     ((DEBUG > 0)) && echo-err -n "$xml: "
+    report_name="$xml$REPORT_SUFFIX"
     if [[ "$STRIP_NAMESPACES" = "1" ]];then
         xml_stripped=$(mktemp $MKTEMP_PATTERN)
         ((DEBUG > 0)) && echo-err -n "Unnamespacing ${xml} -> ${xml_stripped}... "
         xsl-transform "$XSLT_STRIP_NAMESPACES" "$xml" "$xml_stripped"
         xml="$xml_stripped"
     fi
-    report_name="$xml$REPORT_SUFFIX"
     if [[ -z "$FORMATTER" ]];then
         ((DEBUG > 0)) && echo-err -n "Validating ${xml} -> ${report_name}... "
         xsl-transform "$XSLT_OUT" "$xml" "$report_name"
