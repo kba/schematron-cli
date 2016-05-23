@@ -59,7 +59,10 @@ while [[ "$1" =~ ^- ]];do
         --xslt-out) shift; XSLT_OUT="$1" ;;
         --report-suffix) shift; REPORT_SUFFIX="$1" ;;
         --formatter) shift; FORMATTER="$1" ;;
-        --tap) FORMATTER="$SHAREDIR/xslt/svrl-to-tap.xsl" ;;
+        --tap)
+            FORMATTER="$SHAREDIR/xslt/svrl-to-tap.xsl"
+            REPORT_SUFFIX=".tap"
+            ;;
     esac
     shift
 done

@@ -26,12 +26,22 @@
     </xsl:template>
 
     <xsl:template match="svrl:failed-assert">
-        <xsl:text>not ok - </xsl:text><xsl:value-of select="@test"/><xsl:text> </xsl:text><xsl:value-of select="svrl:text/text()"/>
+        <xsl:text>not ok - </xsl:text>
+        <xsl:value-of select="svrl:text/text()"/>
+        <xsl:text> </xsl:text>
+        <xsl:text>"</xsl:text>
+        <xsl:value-of select="@test"/>
+        <xsl:text>"</xsl:text>
         <xsl:text>&#xa;</xsl:text>
     </xsl:template>
 
     <xsl:template match="svrl:successful-report">
-        <xsl:text>ok - </xsl:text> <xsl:value-of select="@test"/><xsl:text> </xsl:text><xsl:value-of select="svrl:text/text()"/>
+        <xsl:text>ok - </xsl:text>
+        <xsl:value-of select="svrl:text/text()"/>
+        <xsl:text> </xsl:text>
+        <xsl:text>"</xsl:text>
+        <xsl:value-of select="@test"/>
+        <xsl:text>"</xsl:text>
         <xsl:text>&#xa;</xsl:text>
     </xsl:template>
 
