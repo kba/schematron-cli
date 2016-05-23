@@ -7,4 +7,6 @@ temp1=$(mktemp)
 exec_ok schematron --help
 exec_ok schematron --xslt-out "$temp1" assets/test.sch assets/sample.html
 
+schematron --debug --strip-namespaces --xslt-out "$temp1" assets/test.sch assets/with-ns.xml
+
 rm "$temp1"

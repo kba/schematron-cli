@@ -2,10 +2,14 @@
 
 SHAREDIR="$(readlink -f "$(dirname "$0")")/.."
 SAXON_JAR="$SHAREDIR/vendor/saxon9he.jar"
+XSLT_STRIP_NAMESPACES="$SHAREDIR/xslt/strip-namespaces.xsl"
+XSLT_SVRL_TO_TAP="$SHAREDIR/xslt/svrl-to-tap.xsl"
+
 REPORT_SUFFIX=".report.xml"
 MKTEMP_PATTERN="/tmp/schematron.XXXXXX"
 DEBUG=0
 XSLT_VERSION=2
+STRIP_NAMESPACES=0
 export TEMPFILES=()
 
 usage() {
@@ -14,6 +18,7 @@ usage() {
     Options:
         --debug    -d                Show what's happening
         --help     -h                Show this help
+        --strip-namespaces           Remove namespaces before validation
         --xslt-version <1|2>         Schematron version to use. Default: $XSLT_VERSION
         --xslt-out <compiled.xsl>    Filename of the compiled XSLT. Default: temp file
         --report-suffix 'xyz.xml'    Filename suffix of the SVRL report. Default: '.report.xml'
@@ -59,22 +64,21 @@ while [[ "$1" =~ ^- ]];do
         --xslt-out) shift; XSLT_OUT="$1" ;;
         --report-suffix) shift; REPORT_SUFFIX="$1" ;;
         --formatter) shift; FORMATTER="$1" ;;
-        --tap)
-            FORMATTER="$SHAREDIR/xslt/svrl-to-tap.xsl"
-            REPORT_SUFFIX=".tap"
-            ;;
+        --strip-namespaces) STRIP_NAMESPACES=1 ;;
+        --tap) FORMATTER="$XSLT_SVRL_TO_TAP"; REPORT_SUFFIX=".tap" ;;
     esac
     shift
 done
 
 if [[ -z "$XSLT_OUT" ]];then
     XSLT_OUT=$(mktemp "$MKTEMP_PATTERN")
+    # shellcheck disable=2064
     trap "((DEBUG>1)) && echo-err 'Deleting $XSLT_OUT'; rm '$XSLT_OUT'" EXIT
 fi
 
 SCHEMATRON_SVRL="$SHAREDIR/vendor/iso-schematron-xslt${XSLT_VERSION}/iso_svrl_for_xslt${XSLT_VERSION}.xsl"
 if [[ ! -e "$SCHEMATRON_SVRL" ]];then
-    echo-err "!! Invalid --xslt-version ${XSLT_VERSION} !!"
+    echo-err "!! Invalid --xslt-version ${XSLT_VERSION}. (Can't find '${SCHEMATRON_SVRL}')"
 fi
 
 #------------------------------------------------------------
@@ -86,7 +90,7 @@ if [[ ! -e "$SCHEMATRON" ]];then
     echo-err "!! Must specify <schematron.sch> file. See $0 --help !!"
     exit 1
 fi
-((DEBUG > 0)) && echo-err -n "Compiling '$SCHEMATRON'... "
+((DEBUG > 0)) && echo-err -n "Compiling '$SCHEMATRON'->'$XSLT_OUT'... "
 if [[ ! -s "$XSLT_OUT" || "$SCHEMATRON" -nt "$XSLT_OUT" ]];then
     ((DEBUG > 0)) && echo-err -n "recompiling ... "
     xsl-transform "$SCHEMATRON_SVRL" "$SCHEMATRON" "$XSLT_OUT"
@@ -99,14 +103,22 @@ fi
 # Apply compiled schematron to input xml
 #------------------------------------------------------------
 for xml in "$@";do
+    ((DEBUG > 0)) && echo-err -n "$xml: "
+    if [[ "$STRIP_NAMESPACES" = "1" ]];then
+        xml_stripped=$(mktemp $MKTEMP_PATTERN)
+        ((DEBUG > 0)) && echo-err -n "Unnamespacing to ${xml_stripped}... "
+        xsl-transform "$XSLT_STRIP_NAMESPACES" "$xml" "$xml_stripped"
+        xml="$xml_stripped"
+    fi
     report_name="$xml$REPORT_SUFFIX"
-    ((DEBUG > 0)) && echo-err -n "$xml: Validating ... "
     if [[ -z "$FORMATTER" ]];then
+        ((DEBUG > 0)) && echo-err -n "Validating ... "
         xsl-transform "$XSLT_OUT" "$xml" "$report_name"
     else
         svrl=$(mktemp $MKTEMP_PATTERN)
-        xsl-transform "$XSLT_OUT" "$xml" "$svrl"
         ((DEBUG > 0)) && echo-err -n "Formatting ... "
+        xsl-transform "$XSLT_OUT" "$xml" "$svrl"
+        ((DEBUG > 0)) && echo-err -n "Validating ... "
         xsl-transform "$FORMATTER" "$svrl" "$report_name"
         rm "$svrl"
     fi
