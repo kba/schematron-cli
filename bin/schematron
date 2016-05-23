@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 SHAREDIR="$(readlink -f "$(dirname "$0")")/.."
 SAXON_JAR="$SHAREDIR/vendor/saxon9he.jar"
@@ -86,10 +85,10 @@ if [[ ! -e "$SCHEMATRON" ]];then
 fi
 ((DEBUG > 0)) && echo-err -n "Compiling '$SCHEMATRON'... "
 if [[ ! -s "$XSLT_OUT" || "$SCHEMATRON" -nt "$XSLT_OUT" ]];then
-    echo-err -n "recompiling ... "
+    ((DEBUG > 0)) && echo-err -n "recompiling ... "
     xsl-transform "$SCHEMATRON_SVRL" "$SCHEMATRON" "$XSLT_OUT"
 else
-    echo-err "use cached ... "
+    ((DEBUG > 0)) && echo-err "use cached ... "
 fi
 ((DEBUG > 0)) && echo-err "done"
 
@@ -110,3 +109,4 @@ for xml in "$@";do
     fi
     ((DEBUG > 0)) && echo-err "done"
 done
+exit 0

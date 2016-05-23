@@ -27,3 +27,14 @@ vendor:
 
 test:
 	@PATH=$(PWD)/bin:$(PATH) ./test/tsht --color
+
+install: vendor
+	$(MKDIR) $(SHAREDIR)
+	$(CP) -t $(SHAREDIR) README.md LICENSE xslt vendor
+	$(MKDIR) $(BINDIR)
+	sed '/^SHAREDIR=/c SHAREDIR="$(SHAREDIR)"' bin/schematron > $(BINDIR)/schematron
+	chmod a+x $(BINDIR)/schematron
+
+uninstall:
+	$(RM) $(SHAREDIR) $(BINDIR)/schematron
+
